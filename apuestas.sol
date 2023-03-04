@@ -1,15 +1,15 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+struct Apuesta {
+    uint256 bote1; // Total apostado al equipo "local"
+    uint256 bote2; // Total apostado al equipo "visitante"
+    uint256 fechaLimite;
+    uint8 ganador; // 0 = sin definir; 1 = "local", 2 = "visitante"
+    bool comisionReclamada;
+}
+
 contract Bet {
-    struct Apuesta {
-        uint256 id;
-        uint256 bote1; // Total apostado al equipo "local"
-        uint256 bote2; // Total apostado al equipo "visitante"
-        uint256 fechaLimite;
-        uint8 ganador; // 0 = sin definir; 1 = "local", 2 = "visitante"
-        bool comisionReclamada;
-    }
     mapping (uint256 => mapping (address => mapping(uint8 => uint256))) intentos; // id_apuesta => participante => opcion => cantidad
     Apuesta[] apuestas;
     uint256 comision;
@@ -37,7 +37,6 @@ contract Bet {
     function crearApuesta(uint256 _dias, uint256 _horas, uint256 _minutos) external isOwner {
         apuestas.push(
             Apuesta(
-                /*id:*/ apuestas.length,
                 /*bote1:*/ 0,
                 /*bote2:*/ 0,
                 /*fechaLimite:*/ dateToTimestamp(_dias, _horas, _minutos),
@@ -48,7 +47,7 @@ contract Bet {
     }
 
     function dateToTimestamp(uint256 dias, uint256 horas, uint256 minutos) internal view returns (uint256) {
-        return block.timestamp + (dias*24*60*60)+ (horas*60*60) + (minutos*60);
+        return block.timestamp + dias*1 days + horas*1 minutes + minutos*1 minutes;
     }
 
     function decidirGanador(uint256 _id, uint8 _ganador) external isOwner {
@@ -69,7 +68,7 @@ contract Bet {
         intentos[_id][msg.sender][_opcion] += msg.value; // Añadir apuesta al registro de intentos
     }
 
-    function reclamarPremio(uint256 _id) external { 
+    function reclamarPremio(uint256 _id) external {
         // Comprobar que la apuesta esté definida
         require(apuestas[_id].ganador > 0, "Aun no se ha definido el resultado");
 
@@ -78,7 +77,7 @@ contract Bet {
         uint256 totalCorrectoApuesta = (apuestas[_id].ganador == 1) ? apuestas[_id].bote1 : apuestas[_id].bote2;
         uint256 participacionCorrectaSender = intentos[_id][msg.sender][apuestas[_id].ganador];
         uint256 premio = participacionCorrectaSender * total / totalCorrectoApuesta; // Formula de Alexfu
-        uint256 premioDespuesDeComisiones = premio * 90 / 100;
+        uint256 premioDespuesDeComisiones = premio * 9 / 10;
         require(premioDespuesDeComisiones > 0, "No tienes premio que reclamar");
 
         // Descontar premios reclamados del registro

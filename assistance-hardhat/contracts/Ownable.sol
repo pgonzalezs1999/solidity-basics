@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 contract Ownable {
     address public owner;
-    mapping(address => bool) admins;
+    mapping(address => bool) public admins;
 
     event Owner_change(address _newOwner);
 
@@ -30,8 +30,7 @@ contract Ownable {
     function addAdmin(address _newAdmin) public virtual onlyAdmin {
         require(_newAdmin != address(0), "Invalid new owner");
         require(_newAdmin != address(this), "Invalid new owner");
-        require(_newAdmin == owner, "The owner already has admin privileges");
-        require(admins[_newAdmin] = false, "This user is already an admin");
+        require(_newAdmin != owner, "The owner already has admin privileges");
         admins[_newAdmin] = true;
     }
 
@@ -39,7 +38,7 @@ contract Ownable {
         require(_oldAdmin != address(0), "Invalid new owner");
         require(_oldAdmin != address(this), "Invalid new owner");
         require(admins[_oldAdmin] == true, "This user is already not-admin");
-        require(_oldAdmin == owner, "You can't remove admin privileges to the owner");
+        require(_oldAdmin != owner, "You can't remove admin privileges to the owner");
         admins[_oldAdmin] = false;
     }
 }

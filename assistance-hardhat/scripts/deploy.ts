@@ -16,7 +16,7 @@ async function main() {
   const BetsContract = await ethers.getContractFactory("Bets");
   const betsContract = await BetsContract.deploy(mocktoken.address);
 
-  console.log(`direccion de bets - ${betsContract.address} |direccion token ${mocktoken.address}`)
+  console.log(`direccion de bets - ${betsContract.address} | direccion token ${mocktoken.address}`)
   
 }
 

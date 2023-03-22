@@ -4,24 +4,19 @@ pragma solidity ^0.8.0;
 import "./Ownable.sol";
 
 interface IMockToken {
-    function totalSupply() external;
-    function balanceOf(address user) external;
-    function allowance(address owner, address spender) external;
-    function approve(address spender, uint256 amount) external; // allow()
-    function transfer(address to, uint256 amount) external;
-    function transferFrom(address from, address to, uint256 amount) external;
-}
-
-struct Lesson {
-    uint256 limitTime;
-    uint256 attenders;
+    function mintTo(address student) external;
+    function mintExtraTo(address student) external;
 }
 
 contract Assistance is Ownable {
     IMockToken mockToken;
-    Lesson[] public lessons; // Array of last-times-to-ckeckin
+    uint256 public lessonCounter;
+    uint256 public lastLimitTime;
+    bytes32 lastPassword;
     mapping (address => bool) public students; // student => isStudent
     mapping (uint256 => mapping (address => bool)) public attendance; // lessonID => student => did_attend
+    mapping (address => uint256) public attendanceOf; // student => number_of_lessons_attended
+    mapping (uint256 => uint256) public lessonAttendance; // lessonID => number_of_students_attended
 
     constructor(IMockToken disrup3Token) {
         owner = msg.sender;
@@ -34,56 +29,59 @@ contract Assistance is Ownable {
     }
 
     function addStudent(address newStudent) external onlyAdmin() {
+        require(newStudent != address(0), "Invalid address");
+        require(newStudent != owner, "The owner already has admin privileges");
         require(students[newStudent] == false, "They are already a student");
         students[newStudent] = true;
     }
 
     function removeStudent(address newStudent) external onlyAdmin() {
+        require(newStudent != address(0), "Invalid address");
+        require(newStudent != owner, "Can't remove admin privileges to the owner");
         require(students[newStudent] == true, "They are already not a student");
         students[newStudent] = false;
     }
 
-    function addLesson() external onlyAdmin {
-        if(lessons.length > 0) {
-            require(block.timestamp > lessons[lessons.length-1].limitTime, "There is already an active check-in");
+    function addLesson(bytes32 newPassword) external onlyAdmin {
+        if(lessonCounter > 0) {
+            require(block.timestamp > lastLimitTime, "There is already an active check-in");
         }
-        lessons.push(
-            Lesson(
-                /*limitTime:*/ block.timestamp + 10 * 1 minutes,
-                /*attenders:*/ 0
-            )
-        );
+        lessonCounter++;
+        lastLimitTime = block.timestamp + 10 * 1 seconds;
+        lastPassword = newPassword;
     }
 
-    function attend(string memory password) external onlyStudent {
-        require(lessons[lessons.length-1].limitTime >= block.timestamp, "There are no active checkins right now");
-        require(attendance[lessons.length][msg.sender] == false, "You already checked in");
-
-        string memory correctPass = "Disrup3"; // Falta que la contraseña se cree como quieren
-        require(keccak256(abi.encodePacked((password))) == keccak256(abi.encodePacked((correctPass))), "Wrong password");
+    function attend(string memory tryPassword) external onlyStudent {
+        require(lastLimitTime >= block.timestamp, "There are no active checkins right now");
+        require(attendance[lessonCounter][msg.sender] == false, "You already checked in");
+        require(keccak256(abi.encodePacked(tryPassword)) == lastPassword, "Wrong password");
         
-        lessons[lessons.length-1].attenders++;
-        attendance[lessons.length-1][msg.sender] = true;
-        mockToken.transfer(msg.sender, _deservesExtraReward(msg.sender) ? 50 : 10);
+        attendanceOf[msg.sender]++;
+        lessonAttendance[lessonCounter-1]++;
+        attendance[lessonCounter][msg.sender] = true;
+        // mockToken.transfer(msg.sender, _deservesExtraReward(msg.sender) ? 50 : 10);
+        _deservesExtraReward(msg.sender) ? mockToken.mintExtraTo(msg.sender) : mockToken.mintTo(msg.sender);
     }
 
     function _deservesExtraReward(address student) private view returns(bool) {
-        if(lessons.length < 5) {
+        if(lessonCounter < 5) {
             return false;
         }
         for(uint256 i=0; i<5; i++) {
-            if(attendance[lessons.length-1-i][student] == false) {
+            if(attendance[lessonCounter-i][student] == false) {
                 return false;
             }
         }
         return true;
     }
 
-    function getStreak() external view onlyStudent returns(uint256) {
-        require(lessons.length > 0, "No lessons created yet");
+    function getStreakOf(address student) external view returns(uint256) {
+        require(student != address(0), "Invalid address");
+        require(students[student] == true, "They are not a student");
+        require(lessonCounter > 0, "No lessons created yet");
         uint256 streak = 0;
-        for(uint256 i=0; i<lessons.length; i++) {
-            if(attendance[lessons.length-1-i][msg.sender] == false) {
+        for(uint256 i=0; i<lessonCounter; i++) {
+            if(attendance[lessonCounter-i][student] == false) {
                 return streak;
             }
             streak++;
@@ -91,24 +89,21 @@ contract Assistance is Ownable {
         return streak;
     }
 
-    function getStudentAssistance() external view onlyStudent returns(uint256) {
-        require(lessons.length > 0, "No lessons created yet");
-        uint256 assistance = 0;
-        for(uint256 i=0; i<lessons.length; i++) {
-            if(attendance[i][msg.sender] == true) {
-                assistance++;
-            }
-        }
-        return assistance * 100 / (lessons.length);
-    }
-
-    function getLessonAssistance(uint256 lessonId) external view returns(uint256) {
-        require(lessons.length > lessonId, "No lesson found with that id");
-        return lessons[lessonId].attenders;
+    function getAttendanceOf(address student) external view returns(uint256) {
+        require(student != address(0), "Invalid address");
+        require(students[student] == true, "They are not a student");
+        require(lessonCounter > 0, "No lessons created yet");
+        require(attendanceOf[student] > 0, "They have not attended any lessons");
+        return attendanceOf[student];
     }
 
     function getNumberOfLessons() external view returns(uint256) {
-        return lessons.length;
+        return lessonCounter;
+    }
+
+    function getLessonAssistance(uint256 lessonId) external view returns(uint256) {
+        require(lessonCounter > lessonId, "No lesson found with that id");
+        return lessonAttendance[lessonId];
     }
 
     receive() external payable {}

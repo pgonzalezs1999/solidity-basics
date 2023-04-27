@@ -10,7 +10,7 @@ contract MockToken is ERC20 {
         _mint(student, 10 * 10 ** decimals()); // El "**" significa elevado a
     }
 
-    function mintExtraTo(address student) public { // Al asistir a 5 clases seguidas clase
+    function mintExtraTo(address student) external { // Al asistir a 5 clases seguidas clase
         _mint(student, 50 * 10 ** decimals()); // El "**" significa elevado a
     }
 }

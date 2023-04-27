@@ -12,11 +12,14 @@ contract Assistance is Ownable {
     IMockToken mockToken;
     uint256 public lessonCounter;
     uint256 public lastLimitTime;
-    bytes32 lastPassword;
+    bytes32 private _lastPassword;
     mapping (address => bool) public students; // student => isStudent
     mapping (uint256 => mapping (address => bool)) public attendance; // lessonID => student => did_attend
     mapping (address => uint256) public attendanceOf; // student => number_of_lessons_attended
     mapping (uint256 => uint256) public lessonAttendance; // lessonID => number_of_students_attended
+
+    event ClassCreated(uint256 indexed lessonId, uint256 createdAt);
+    event StudentAttended(uint256 indexed lessonId, address indexed student, uint256 timestamp);
 
     constructor(IMockToken disrup3Token) {
         owner = msg.sender;
@@ -48,18 +51,17 @@ contract Assistance is Ownable {
         }
         lessonCounter++;
         lastLimitTime = block.timestamp + 10 * 1 seconds;
-        lastPassword = newPassword;
+        _lastPassword = newPassword;
     }
 
     function attend(string memory tryPassword) external onlyStudent {
         require(lastLimitTime >= block.timestamp, "There are no active checkins right now");
         require(attendance[lessonCounter][msg.sender] == false, "You already checked in");
-        require(keccak256(abi.encodePacked(tryPassword)) == lastPassword, "Wrong password");
+        require(keccak256(abi.encodePacked(tryPassword)) == _lastPassword, "Wrong password");
         
         attendanceOf[msg.sender]++;
         lessonAttendance[lessonCounter-1]++;
         attendance[lessonCounter][msg.sender] = true;
-        // mockToken.transfer(msg.sender, _deservesExtraReward(msg.sender) ? 50 : 10);
         _deservesExtraReward(msg.sender) ? mockToken.mintExtraTo(msg.sender) : mockToken.mintTo(msg.sender);
     }
 
